@@ -1,14 +1,14 @@
-# Rust MCP Runtime Re-implementation Requirements / Требования к ре-имплементации Rust MCP Runtime
+# Rust MCP Runtime Re-implementation Requirements
 
-**Version / Версия:** 1.0  
-**Date / Дата:** 2026-03-17  
-**Language / Язык:** English / Русский
+**Version:** 1.0
+**Date:** 2026-03-17
+**Language:** English
 
 ---
 
-## What Is This Module? / Что это за модуль?
+## What Is This Module?
 
-### English - Plain Language Description
+### Plain Language Description
 
 **In one sentence:** This Rust module is a **high-performance HTTP gateway** that sits between MCP clients (like AI assistants, IDEs, or LLM applications) and a Python backend, handling the MCP protocol traffic faster while letting Python handle security.
 
@@ -41,42 +41,9 @@
 
 ---
 
-### Русский - Описание простым языком
+## How Does It Decide Where to Send a Request?
 
-**Одним предложением:** Этот Rust модуль - это **высокопроизводительный HTTP шлюз**, который находится между MCP клиентами (такими как AI ассистенты, IDE или LLM приложения) и Python бэкендом, обрабатывая трафик протокола MCP быстрее, пока Python занимается безопасностью.
-
-**Что он на самом деле делает, шаг за шагом:**
-
-1. **Слушает HTTP запросы** на порту 8787 (по умолчанию) от MCP клиентов
-2. **Получает сообщения протокола MCP** - это JSON-RPC запросы типа:
-   - "Дай мне список доступных инструментов" (`tools/list`)
-   - "Вызови этот инструмент с этими аргументами" (`tools/call`)
-   - "Дай мне этот ресурс" (`resources/read`)
-   - "Дай мне этот промпт" (`prompts/get`)
-   - "Инициализируй новую сессию" (`initialize`)
-3. **Проверяет, разрешен ли запрос** вызывая эндпоинт аутентификации Python
-4. **Решает, куда отправить запрос:**
-   - **Обработать локально** (без сетевого вызова): `ping` → возвращает `{}` немедленно
-   - **Запросить базу данных напрямую** (быстрый путь): `tools/list`, `resources/list`, `prompts/list` → запрашивает PostgreSQL, возвращает результаты
-   - **Вызвать upstream сервер** (прямое выполнение): `tools/call` → вызывает фактический MCP сервер (например, Git сервер, файловый сервер и т.д.)
-   - **Проксировать на Python** (резервный путь): Всё остальное → перенаправляет на Python бэкенд
-5. **Управляет сессиями** - помнит, какой пользователь владеет какой сессией, переиспользует аутентификацию для скорости
-6. **Транслирует ответы обратно** клиентам используя SSE (Server-Sent Events) для длительных запросов
-7. **Собирает метрики** - считает попадания в кэш, ошибки аутентификации, отказы сессий и т.д.
-
-**Чего он НЕ делает:**
-- НЕ аутентифицирует пользователей сам (Python делает это)
-- НЕ решает, что пользователям разрешено делать (Python делает это через RBAC)
-- НЕ хранит инструменты/ресурсы/промпты (они в PostgreSQL)
-- НЕ заменяет Python бэкенд (это ускоритель, а не замена)
-
-**Аналогия:** Думайте об этом как о **CDN для MCP трафика**. Так же, как CDN кэширует статический контент, чтобы не обращаться к вашему веб-серверу, этот Rust runtime обрабатывает распространенные MCP запросы напрямую, чтобы не обращаться к Python бэкенду. Но для всего, что связано с безопасностью, он всё ещё обращается к Python.
-
----
-
-## How Does It Decide Where to Send a Request? / Как он решает, куда отправить запрос?
-
-### English - Request Routing Decision Logic
+### Request Routing Decision Logic
 
 When a request arrives, the Rust runtime goes through a **decision tree** to determine the handler. Here's the exact logic:
 
@@ -118,7 +85,7 @@ flowchart TD
     style O fill:#FFE4B5
 ```
 
-### Decision Table / Таблица решений
+### Decision Table
 
 | Method | Condition | Handler | Why |
 |--------|-----------|---------|-----|
@@ -139,7 +106,7 @@ flowchart TD
 | `sampling/*`, `completion/*`, `logging/*`, `elicitation/*` | Most | **Local (catch-all)** | Returns empty success |
 | Everything else | Default | **Backend** | Proxy to Python for safety |
 
-### Handler Types / Типы обработчиков
+### Handler Types
 
 ```mermaid
 flowchart LR
@@ -165,79 +132,24 @@ flowchart LR
     style H5 fill:#DDA0DD
 ```
 
-### Russian - Логика принятия решений о маршрутизации
+---
 
-Когда запрос поступает, Rust runtime проходит через **дерево решений** для определения обработчика. Вот точная логика:
+## Table of Contents
 
-(См. диаграмму Mermaid выше)
-
-### Таблица решений
-
-| Метод | Условие | Обработчик | Почему |
-|-------|---------|-----------|--------|
-| `ping` | Всегда | **Локальный** | Нет состояния, нет аутентификации, возвращает `{}` |
-| `initialize` | Всегда | **Session Core + Backend** | Создает запись сессии, затем проксирует на Python |
-| `tools/list` | server-scoped + DB настроен | **Direct DB** | Может запросить PostgreSQL напрямую с фильтрацией по команде |
-| `tools/list` | Не server-scoped | **Backend** | Нужна логика агрегации Python |
-| `tools/call` | Всегда | **Upstream (через план Python)** | Python разрешает аутентификацию, Rust вызывает upstream сервер |
-| `resources/list` | server-scoped + DB настроен | **Direct DB** | Может запросить PostgreSQL напрямую |
-| `resources/read` | server-scoped + простые параметры + DB | **Direct DB** | Простой поиск по URI |
-| `resources/read` | Сложные параметры или нет DB | **Backend** | Нужны хуки плагинов Python |
-| `prompts/list` | server-scoped + DB настроен | **Direct DB** | Может запросить PostgreSQL напрямую |
-| `prompts/get` | server-scoped + простые параметры + DB | **Direct DB** | Простой поиск по имени |
-| `notifications/initialized` | Всегда | **Backend** | Нужны обработчики уведомлений Python |
-| `notifications/message` | Всегда | **Backend** | Нужны обработчики уведомлений Python |
-| `notifications/cancelled` | Всегда | **Backend** | Нужны обработчики уведомлений Python |
-| `notifications/*` | Другие | **Локальный (catch-all)** | Возвращает пустой успех |
-| `sampling/*`, `completion/*`, `logging/*`, `elicitation/*` | Большинство | **Локальный (catch-all)** | Возвращает пустой успех |
-| Всё остальное | По умолчанию | **Backend** | Прокси на Python для безопасности |
-
-### Типы обработчиков
-
-```mermaid
-flowchart LR
-    subgraph Handlers["Типы обработчиков"]
-        direction TB
-        H1["🏠 Локальный<br/>Без внешних вызовов<br/>ping, catch-alls"]
-        H2["💾 Direct DB<br/>PostgreSQL запрос<br/>tools/list, resources/*"]
-        H3["🔧 Upstream вызов<br/>Напрямую к MCP серверу<br/>tools/call"]
-        H4["🔙 Backend Proxy<br/>На Python internal<br/>initialize, notifications"]
-        H5["📋 Session Core<br/>Создание сессии + Backend<br/>initialize"]
-    end
-
-    H1 --> R1["✅ Быстрее всего<br/>~1ms"]
-    H2 --> R2["⚡ Быстро<br/>~10-50ms"]
-    H3 --> R3["🚀 Средне<br/>~50-200ms"]
-    H4 --> R4["🐌 Медленнее<br/>~100-500ms"]
-    H5 --> R5["📊 Средне<br/>~50-100ms"]
-
-    style H1 fill:#90EE90
-    style H2 fill:#87CEEB
-    style H3 fill:#FFB6C1
-    style H4 fill:#FFE4B5
-    style H5 fill:#DDA0DD
-```
+1. [Overview](#1-overview)
+2. [Architecture](#2-architecture)
+3. [Endpoints and Request Flows](#3-endpoints-and-request-flows)
+4. [Detailed Request Processing Flow](#4-detailed-request-processing-flow)
+5. [Database Operations](#5-database-operations)
+6. [Cache Operations](#6-cache-operations)
+7. [Metrics Collection](#7-metrics-collection)
+8. [Data Models](#8-data-models)
+9. [Configuration](#9-configuration)
+10. [Error Handling](#10-error-handling)
 
 ---
 
-## Table of Contents / Содержание
-
-1. [Overview / Обзор](#1-overview--обзор)
-2. [Architecture / Архитектура](#2-architecture--архитектура)
-3. [Endpoints and Request Flows / Конечные точки и потоки запросов](#3-endpoints-and-request-flows--конечные-точки-и-потоки-запросов)
-4. [Detailed Request Processing Flow / Детальный поток обработки запросов](#4-detailed-request-processing-flow--детальный-поток-обработки-запросов)
-5. [Database Operations / Операции с базой данных](#5-database-operations--операции-с-базой-данных)
-6. [Cache Operations / Операции кэширования](#6-cache-operations--операции-кэширования)
-7. [Metrics Collection / Сбор метрик](#7-metrics-collection--сбор-метрик)
-8. [Data Models / Модели данных](#8-data-models--модели-данных)
-9. [Configuration / Конфигурация](#9-configuration--конфигурация)
-10. [Error Handling / Обработка ошибок](#10-error-handling--обработка-ошибок)
-
----
-
-## 1. Overview / Обзор
-
-### English
+## 1. Overview
 
 **Purpose:** This document specifies requirements for re-implementing the ContextForge Rust MCP Runtime in another programming language. The Rust MCP Runtime is an optional high-performance sidecar that handles public MCP (Model Context Protocol) HTTP traffic while delegating authentication, token scoping, and RBAC to the Python backend.
 
@@ -268,46 +180,15 @@ The Rust MCP Runtime serves as a **high-performance HTTP edge** for MCP protocol
 - **Direct execution fast path**: `tools/call` can bypass Python for eligible calls
 - **Strict session isolation**: Session hijacking attempts are denied with detailed metrics
 
-### Русский
-
-**Назначение:** Этот документ специфицирует требования для ре-имплементации ContextForge Rust MCP Runtime на другом языке программирования. Rust MCP Runtime - это опциональный высокопроизводительный сайдкар, который обрабатывает публичный HTTP-трафик MCP (Model Context Protocol), делегируя аутентификацию, токенизацию и RBAC Python бэкенду.
-
-**Что делает этот модуль:**
-
-Rust MCP Runtime служит **высокопроизводительным HTTP edge** для трафика протокола MCP. Это НЕ полноценный MCP сервер - это **умный прокси и менеджер сессий**, который:
-
-1. **Принимает публичные MCP запросы** (`GET/POST/DELETE /mcp`) от клиентов
-2. **Аутентифицирует через Python** бэкенд (Python остается авторитетом аутентификации)
-3. **Управляет сессиями** - отслеживает владение сессией, контекст аутентификации, область сервера
-4. **Маршрутизирует запросы** к соответствующим обработчикам:
-   - **Локальная обработка**: `ping`, catch-all уведомления
-   - **Прямые DB запросы**: `tools/list`, `resources/list`, `prompts/list` (PostgreSQL)
-   - **Бэкенд прокси**: `initialize`, `notifications/*`, `roots/*`
-   - **Upstream вызовы**: `tools/call` (напрямую к upstream MCP серверам)
-5. **Владеет опциональными ядрами** в режиме `full`:
-   - Управление метаданными сессий
-   - Хранилище событий на Redis
-   - Live SSE стриминг
-   - Возобновляемые GET потоки
-   - Межворкерная affinity переадресация
-
-**Ключевые проектные решения:**
-
-- **Python - авторитет аутентификации**: Rust вызывает `POST /_internal/mcp/authenticate` Python для всех публичных запросов
-- **Повторное использование аутентификации сессии**: После начальной аутентификации Rust может переиспользовать контекст аутентификации для той же сессии (ограничено TTL)
-- **Развертывание на основе режимов**: `off` → `shadow` → `edge` → `full` контролирует владение Rust
-- **Быстрый путь прямого выполнения**: `tools/call` может обходить Python для подходящих вызовов
-- **Строгая изоляция сессий**: Попытки перехвата сессии отклоняются с детальной метрикой
-
 ---
 
-## 2. Architecture / Архитектура
+## 2. Architecture
 
-### 2.1 High-Level Architecture Diagram / Диаграмма архитектуры высокого уровня
+### 2.1 High-Level Architecture Diagram
 
 ```mermaid
 flowchart TB
-    subgraph Client["🖥️ Client Layer / Клиентский слой"]
+    subgraph Client["🖥️ Client Layer"]
         C1["MCP Clients<br/>LLMs, IDE plugins"]
     end
 
@@ -368,9 +249,9 @@ flowchart TB
     Rust --> Storage
 ```
 
-### 2.2 Component Interaction Sequence / Последовательность взаимодействия компонентов
+### 2.2 Component Interaction Sequence
 
-#### Standard POST /mcp Request Flow / Стандартный поток запроса POST /mcp
+#### Standard POST /mcp Request Flow
 
 ```mermaid
 sequenceDiagram
@@ -408,7 +289,7 @@ sequenceDiagram
     Nginx-->>Client: 11. Response
 ```
 
-#### Session Initialization Flow / Поток инициализации сессии
+#### Session Initialization Flow
 
 ```mermaid
 sequenceDiagram
@@ -432,7 +313,7 @@ sequenceDiagram
     Rust-->>Client: 7. Response + session-id
 ```
 
-#### Session Reuse Flow / Поток повторного использования сессии
+#### Session Reuse Flow
 
 ```mermaid
 sequenceDiagram
@@ -460,9 +341,9 @@ sequenceDiagram
 
 ---
 
-## 3. Endpoints and Request Flows / Конечные точки и потоки запросов
+## 3. Endpoints and Request Flows
 
-### 3.1 Public Endpoints / Публичные конечные точки
+### 3.1 Public Endpoints
 
 | Method | Endpoint | Description | Handler Type |
 |--------|----------|-------------|--------------|
@@ -475,7 +356,7 @@ sequenceDiagram
 | `POST` | `/servers/{server_id}/mcp` | Server-scoped JSON-RPC | Main RPC + Server scope |
 | `DELETE` | `/servers/{server_id}/mcp` | Server-scoped session termination | Backend proxy |
 
-### 3.2 Internal Endpoints / Внутренние конечные точки
+### 3.2 Internal Endpoints
 
 | Method | Endpoint | Description | Handler Type |
 |--------|----------|-------------|--------------|
@@ -483,7 +364,7 @@ sequenceDiagram
 | `POST` | `/_internal/event-store/store` | Store event in Redis | Event Store Core |
 | `POST` | `/_internal/event-store/replay` | Replay events from Redis | Event Store Core |
 
-### 3.3 Method Routing Table / Таблица маршрутизации методов
+### 3.3 Method Routing Table
 
 | MCP Method | Handler Type | Description |
 |------------|--------------|-------------|
@@ -510,9 +391,9 @@ sequenceDiagram
 
 ---
 
-## 4. Detailed Request Processing Flow / Детальный поток обработки запросов
+## 4. Detailed Request Processing Flow
 
-### 4.1 Main Request Processing Pipeline / Основной конвейер обработки запросов
+### 4.1 Main Request Processing Pipeline
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -593,7 +474,7 @@ sequenceDiagram
                               Response
 ```
 
-### 4.2 Authentication Flow / Поток аутентификации
+### 4.2 Authentication Flow
 
 ```mermaid
 flowchart TD
@@ -617,11 +498,11 @@ flowchart TD
     style H fill:#90EE90
 ```
 
-### 4.3 Session Auth Reuse Flow / Поток повторного использования аутентификации сессии
+### 4.3 Session Auth Reuse Flow
 
 ```mermaid
 flowchart TD
-    A["Start:<br/>can_reuse_session_auth"] --> B{"1. session_auth_<br/>reuse_enabled?"}
+    A["Start:<br/>can_reuse_session_auth"] --> B{"1. session_auth_<br/>reuse enabled?"}
 
     B -->|No| C["❌ MISS: disabled"]
     B -->|Yes| D{"2. Session in<br/>runtime_sessions cache?"}
@@ -655,7 +536,7 @@ flowchart TD
     style Q fill:#90EE90
 ```
 
-### 4.4 Direct DB Query Flow / Поток прямого DB запроса
+### 4.4 Direct DB Query Flow
 
 ```mermaid
 flowchart TD
@@ -680,7 +561,7 @@ flowchart TD
     style H fill:#90EE90
 ```
 
-### 4.5 Direct tools/call Execution Flow / Поток прямого выполнения tools/call
+### 4.5 Direct tools/call Execution Flow
 
 ```mermaid
 flowchart TD
@@ -716,9 +597,9 @@ flowchart TD
 
 ---
 
-## 5. Database Operations / Операции с базой данных
+## 5. Database Operations
 
-### 5.1 PostgreSQL Connection / Подключение к PostgreSQL
+### 5.1 PostgreSQL Connection
 
 **Configuration:**
 - Environment: `MCP_RUST_DATABASE_URL`
@@ -734,13 +615,13 @@ flowchart TD
 
 **Note:** Client certificate authentication (`sslcert`, `sslkey`) is NOT supported yet.
 
-### 5.2 Direct DB Queries / Прямые DB запросы
+### 5.2 Direct DB Queries
 
 #### tools/list Query
 
 ```sql
 -- Admin user (sees all tools)
-SELECT 
+SELECT
     id, name, description, input_schema, annotations,
     server_id, public, team_id, created_at, updated_at
 FROM tools
@@ -748,7 +629,7 @@ WHERE server_id = $1
 ORDER BY name;
 
 -- Non-admin user (sees public + team tools)
-SELECT 
+SELECT
     id, name, description, input_schema, annotations,
     server_id, public, team_id, created_at, updated_at
 FROM tools
@@ -762,7 +643,7 @@ ORDER BY name;
 
 ```sql
 -- Non-admin user
-SELECT 
+SELECT
     id, uri, name, description, mime_type,
     server_id, public, team_id, created_at, updated_at
 FROM resources
@@ -774,7 +655,7 @@ ORDER BY name;
 #### resources/read Query
 
 ```sql
-SELECT 
+SELECT
     id, uri, name, description, mime_type, content,
     server_id, public, team_id
 FROM resources
@@ -788,7 +669,7 @@ LIMIT 1;
 
 ```sql
 -- Non-admin user
-SELECT 
+SELECT
     id, name, description, arguments,
     server_id, public, team_id, created_at, updated_at
 FROM prompts
@@ -800,7 +681,7 @@ ORDER BY name;
 #### prompts/get Query
 
 ```sql
-SELECT 
+SELECT
     id, name, description, arguments,
     server_id, public, team_id
 FROM prompts
@@ -813,7 +694,7 @@ LIMIT 1;
 #### resource_templates/list Query
 
 ```sql
-SELECT 
+SELECT
     id, uri_template, name, description, mime_type,
     server_id, public, team_id
 FROM resource_templates
@@ -822,7 +703,7 @@ WHERE server_id = $1
 ORDER BY name;
 ```
 
-### 5.3 DB Operation Requirements / Требования к DB операциям
+### 5.3 DB Operation Requirements
 
 | ID | Requirement | Details |
 |----|-------------|---------|
@@ -837,9 +718,9 @@ ORDER BY name;
 
 ---
 
-## 6. Cache Operations / Операции кэширования
+## 6. Cache Operations
 
-### 6.1 Cache Layers / Уровни кэширования
+### 6.1 Cache Layers
 
 ```mermaid
 flowchart TB
@@ -873,7 +754,7 @@ flowchart TB
     style R4 fill:#87CEEB
 ```
 
-### 6.2 Redis Key Patterns / Паттерны ключей Redis
+### 6.2 Redis Key Patterns
 
 | Key Pattern | Example | TTL | Description |
 |-------------|---------|-----|-------------|
@@ -883,9 +764,9 @@ flowchart TB
 | `{prefix}:pool_owner:{session_id}` | `mcpgw:pool_owner:abc-123` | 3600s | Session pool owner |
 | `{prefix}:rust:tool-plan:{hash}` | `mcpgw:rust:tool-plan:sha256...` | 30s | Cached tool call plan |
 
-### 6.3 Cache Operations / Операции кэширования
+### 6.3 Cache Operations
 
-#### Session Cache Operations / Операции кэша сессий
+#### Session Cache Operations
 
 ```rust
 // Get session (checks TTL)
@@ -897,18 +778,18 @@ async fn get_runtime_session(state: &AppState, session_id: &str) -> Option<Runti
             return Some(record.clone());
         }
     }
-    
+
     // 2. Check Redis
     let redis = state.redis().await?;
     let key = format!("{}:rust:mcp:session:{}", state.cache_prefix(), session_id);
     let stored: Option<StoredRuntimeSessionRecord> = redis.get(&key).await.ok()?;
-    
+
     // 3. Rebuild record with local timing
     let record = RuntimeSessionRecord::from(stored?);
-    
+
     // 4. Update in-memory cache
     sessions.insert(session_id.to_string(), record.clone());
-    
+
     Some(record)
 }
 
@@ -916,7 +797,7 @@ async fn get_runtime_session(state: &AppState, session_id: &str) -> Option<Runti
 async fn upsert_runtime_session(state: &AppState, session_id: String, record: RuntimeSessionRecord) {
     // 1. Save to in-memory
     state.runtime_sessions.lock().await.insert(session_id.clone(), record.clone());
-    
+
     // 2. Save to Redis
     if let Some(redis) = state.redis().await {
         let key = format!("{}:rust:mcp:session:{}", state.cache_prefix(), session_id);
@@ -930,7 +811,7 @@ async fn upsert_runtime_session(state: &AppState, session_id: String, record: Ru
 async fn remove_runtime_session(state: &AppState, session_id: &str) {
     // 1. Remove from in-memory
     state.runtime_sessions.lock().await.remove(session_id);
-    
+
     // 2. Remove from Redis
     if let Some(redis) = state.redis().await {
         let key = format!("{}:rust:mcp:session:{}", state.cache_prefix(), session_id);
@@ -939,7 +820,7 @@ async fn remove_runtime_session(state: &AppState, session_id: &str) {
 }
 ```
 
-#### Event Store Operations / Операции хранилища событий
+#### Event Store Operations
 
 ```rust
 // Store event (atomic Lua script)
@@ -949,10 +830,10 @@ async fn store_event_in_rust_event_store(
 ) -> Result<String, Response> {
     let redis = state.redis().await
         .ok_or_else(|| json_response(501, json!({"detail": "Redis unavailable"})))?;
-    
+
     let prefix = event_store_key_prefix(state, request.key_prefix.as_deref());
     let stream_key = format!("{}:{}", prefix, request.stream_id);
-    
+
     // Lua script for atomic operation
     let script = r#"
         local stream_key = KEYS[1]
@@ -961,30 +842,30 @@ async fn store_event_in_rust_event_store(
         local message = ARGV[3]
         local max_events = tonumber(ARGV[4])
         local ttl = tonumber(ARGV[5])
-        
+
         -- Add event to hash
         redis.call('HSET', stream_key, event_id, message)
-        
+
         -- Track sequence
         redis.call('HINCRBY', stream_key .. ':index', event_id, seq_num)
-        
+
         -- Trim if exceeds max
         local count = redis.call('HLEN', stream_key)
         if count > max_events then
             -- Remove oldest events (simplified)
         end
-        
+
         -- Set TTL
         redis.call('EXPIRE', stream_key, ttl)
         redis.call('EXPIRE', stream_key .. ':index', ttl)
-        
+
         return event_id
     "#;
-    
+
     let event_id = Uuid::new_v4().to_string();
     let seq_num = get_next_seq_num(&redis, &stream_key).await?;
     let message = request.message.map(|m| m.to_string()).unwrap_or("null".to_string());
-    
+
     Script::new(script)
         .key(&stream_key)
         .arg(&event_id)
@@ -1004,17 +885,17 @@ async fn replay_events_from_rust_event_store(
 ) -> Result<EventStoreReplayResponse, Response> {
     let redis = state.redis().await
         .ok_or_else(|| json_response(501, json!({"detail": "Redis unavailable"})))?;
-    
+
     let prefix = event_store_key_prefix(state, request.key_prefix.as_deref());
-    
+
     // Get stream_id and seq_num from last_event_id
     let (stream_id, last_seq) = get_stream_and_seq_from_event_id(&request.last_event_id)?;
     let stream_key = format!("{}:{}", prefix, stream_id);
-    
+
     // Get all events with seq > last_seq
     let entries: HashMap<String, String> = redis.hgetall(&stream_key).await?;
     let index: HashMap<String, i64> = redis.hgetall(&format!("{}:index", stream_key)).await?;
-    
+
     // Filter and sort events
     let mut events: Vec<EventStoreReplayEvent> = entries
         .into_iter()
@@ -1030,9 +911,9 @@ async fn replay_events_from_rust_event_store(
             }
         })
         .collect();
-    
+
     events.sort_by_key(|e| index.get(&e.event_id).copied().unwrap_or(0));
-    
+
     Ok(EventStoreReplayResponse {
         stream_id: Some(stream_id),
         events,
@@ -1040,7 +921,7 @@ async fn replay_events_from_rust_event_store(
 }
 ```
 
-### 6.4 Cache Requirements / Требования к кэшированию
+### 6.4 Cache Requirements
 
 | ID | Requirement | Details |
 |----|-------------|---------|
@@ -1055,9 +936,9 @@ async fn replay_events_from_rust_event_store(
 
 ---
 
-## 7. Metrics Collection / Сбор метрик
+## 7. Metrics Collection
 
-### 7.1 Runtime Stats Structure / Структура статистики выполнения
+### 7.1 Runtime Stats Structure
 
 ```json
 {
@@ -1087,9 +968,9 @@ async fn replay_events_from_rust_event_store(
 }
 ```
 
-### 7.2 Metrics Collection Points / Точки сбора метрик
+### 7.2 Metrics Collection Points
 
-#### Session Auth Reuse Metrics / Метрики повторного использования аутентификации сессии
+#### Session Auth Reuse Metrics
 
 ```rust
 fn record_session_auth_reuse_hit(&self) {
@@ -1128,7 +1009,7 @@ fn record_session_auth_backend_round_trip(&self) {
 }
 ```
 
-#### Session Access Denial Metrics / Метрики отказа доступа к сессии
+#### Session Access Denial Metrics
 
 ```rust
 fn record_session_access_denial(&self, reason: SessionAccessDenyReason) {
@@ -1153,7 +1034,7 @@ fn record_session_server_scope_mismatch(&self) {
 }
 ```
 
-#### Affinity Metrics / Метрики affinity
+#### Affinity Metrics
 
 ```rust
 fn record_affinity_forward_attempt(&self) {
@@ -1165,7 +1046,7 @@ fn record_affinity_forwarded_request(&self) {
 }
 ```
 
-### 7.3 Metrics Exposure / Предоставление метрик
+### 7.3 Metrics Exposure
 
 Metrics are exposed via:
 1. **`GET /health` endpoint** - Full stats in JSON response
@@ -1182,7 +1063,7 @@ Example health response:
 }
 ```
 
-### 7.4 Metrics Requirements / Требования к метрикам
+### 7.4 Metrics Requirements
 
 | ID | Requirement | Details |
 |----|-------------|---------|
@@ -1197,9 +1078,9 @@ Example health response:
 
 ---
 
-## 8. Data Models / Модели данных
+## 8. Data Models
 
-### 8.1 RuntimeSessionRecord / Запись сессии выполнения
+### 8.1 RuntimeSessionRecord
 
 ```json
 {
@@ -1228,7 +1109,7 @@ Example health response:
 }
 ```
 
-### 8.2 InternalAuthContext / Внутренний контекст аутентификации
+### 8.2 InternalAuthContext
 
 ```json
 {
@@ -1239,7 +1120,7 @@ Example health response:
 }
 ```
 
-### 8.3 ResolvedMcpToolCallPlan / Разрешенный план вызова MCP инструмента
+### 8.3 ResolvedMcpToolCallPlan
 
 ```json
 {
@@ -1259,7 +1140,7 @@ Example health response:
 }
 ```
 
-### 8.4 UpstreamToolSession / Сессия инструмента upstream
+### 8.4 UpstreamToolSession
 
 ```json
 {
@@ -1268,7 +1149,7 @@ Example health response:
 }
 ```
 
-### 8.5 EventStoreReplayEvent / Событие воспроизведения хранилища событий
+### 8.5 EventStoreReplayEvent
 
 ```json
 {
@@ -1277,7 +1158,7 @@ Example health response:
 }
 ```
 
-### 8.6 RuntimeStatsSnapshot / Снимок статистики выполнения
+### 8.6 RuntimeStatsSnapshot
 
 ```json
 {
@@ -1309,9 +1190,9 @@ Example health response:
 
 ---
 
-## 9. Configuration / Конфигурация
+## 9. Configuration
 
-### 9.1 CLI Arguments and Environment Variables / Аргументы CLI и переменные окружения
+### 9.1 CLI Arguments and Environment Variables
 
 | CLI Argument | Environment Variable | Default | Description |
 |--------------|---------------------|---------|-------------|
@@ -1349,7 +1230,7 @@ Example health response:
 | `--db-pool-max-size` | `MCP_RUST_DB_POOL_MAX_SIZE` | `20` | DB pool max size |
 | `--log-filter` | `MCP_RUST_LOG` | `info` | Log level filter |
 
-### 9.2 Mode Presets / Пресеты режимов
+### 9.2 Mode Presets
 
 | Mode | Public `/mcp` | Session Core | Event Store | Resume | Live Stream | Affinity | Auth Reuse |
 |------|---------------|--------------|-------------|--------|-------------|----------|------------|
@@ -1360,9 +1241,9 @@ Example health response:
 
 ---
 
-## 10. Error Handling / Обработка ошибок
+## 10. Error Handling
 
-### 10.1 JSON-RPC Error Codes / Коды ошибок JSON-RPC
+### 10.1 JSON-RPC Error Codes
 
 | Code | Message | When |
 |------|---------|------|
@@ -1373,7 +1254,7 @@ Example health response:
 | `-32000` | Server error | Backend/Rust error (generic) |
 | `-32003` | Access denied | Session/auth denial |
 
-### 10.2 Error Response Format / Формат ответа об ошибке
+### 10.2 Error Response Format
 
 ```json
 {
@@ -1387,7 +1268,7 @@ Example health response:
 }
 ```
 
-### 10.3 Error Redaction / Сокращение ошибок
+### 10.3 Error Redaction
 
 **Client-visible errors:**
 - Internal error details are REDACTED
@@ -1397,7 +1278,7 @@ Example health response:
 - Full error details logged
 - Include stack traces for debugging
 
-### 10.4 HTTP Status Mapping / Сопоставление статусов HTTP
+### 10.4 HTTP Status Mapping
 
 | JSON-RPC Error | HTTP Status |
 |----------------|-------------|
@@ -1410,7 +1291,7 @@ Example health response:
 | Session not found | 404 Not Found |
 | Auth failure | 401 Unauthorized |
 
-### 10.5 Error Handling Requirements / Требования к обработке ошибок
+### 10.5 Error Handling Requirements
 
 | ID | Requirement | Details |
 |----|-------------|---------|
@@ -1425,28 +1306,19 @@ Example health response:
 
 ---
 
-## 11. Revision History / История версий
+## 11. Revision History
 
-| Version / Версия | Date / Дата | Author / Автор | Changes / Изменения |
-|------------------|-------------|----------------|---------------------|
-| 1.0 | 2026-03-17 | ContextForge Team | Initial requirements / Начальные требования |
+| Version | Date | Author | Changes |
+|---------|------|--------|---------|
+| 1.0 | 2026-03-17 | ContextForge Team | Initial requirements |
 
 ---
 
-## 12. References / Ссылки
+## 12. References
 
-### English
 - [Rust MCP Runtime README](../../tools_rust/mcp_runtime/README.md)
 - [Rust MCP Runtime DEVELOPING](../../tools_rust/mcp_runtime/DEVELOPING.md)
 - [Rust MCP Runtime TESTING-DESIGN](../../tools_rust/mcp_runtime/TESTING-DESIGN.md)
 - [Rust MCP Runtime STATUS](../../tools_rust/mcp_runtime/STATUS.md)
 - [Architecture: Rust MCP Runtime](../../docs/docs/architecture/rust-mcp-runtime.md)
 - [ADR-043: Rust MCP Runtime Sidecar](../../docs/docs/architecture/adr/043-rust-mcp-runtime-sidecar-mode-model.md)
-
-### Русский
-- [README Rust MCP Runtime](../../tools_rust/mcp_runtime/README.md)
-- [РАЗРАБОТКА Rust MCP Runtime](../../tools_rust/mcp_runtime/DEVELOPING.md)
-- [ДИЗАЙН ТЕСТИРОВАНИЯ Rust MCP Runtime](../../tools_rust/mcp_runtime/TESTING-DESIGN.md)
-- [СТАТУС Rust MCP Runtime](../../tools_rust/mcp_runtime/STATUS.md)
-- [Архитектура: Rust MCP Runtime](../../docs/docs/architecture/rust-mcp-runtime.md)
-- [ADR-043: Сайдкар Rust MCP Runtime](../../docs/docs/architecture/adr/043-rust-mcp-runtime-sidecar-mode-model.md)
