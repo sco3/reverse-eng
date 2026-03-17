@@ -82,32 +82,32 @@ When a request arrives, the Rust runtime goes through a **decision tree** to det
 
 ```mermaid
 flowchart TD
-    A[📥 Request arrives<br/>POST /mcp<br/>JSON-RPC body] --> B{STEP 1:<br/>method == ping?}
-    
-    B -->|YES| C[🏠 HANDLE LOCALLY<br/>Return {}<br/>Status: 200]
-    B -->|NO| D{STEP 2:<br/>notifications/*?}
-    
-    D -->|YES - initialized/message/cancelled| E[🔙 PROXY TO PYTHON<br/>Backend call]
-    D -->|YES - other| F[🏠 HANDLE LOCALLY<br/>Catch-all<br/>Return {}]
-    D -->|NO| G{STEP 3:<br/>Catch-all list?<br/>sampling/*, completion/*<br/>logging/*, elicitation/*}
-    
-    G -->|YES| H[🏠 HANDLE LOCALLY<br/>Return {}]
-    G -->|NO| I{STEP 4:<br/>Direct DB eligible?<br/>1. server-scoped?<br/>2. DB configured?<br/>3. Method in list?}
-    
-    I -->|YES - tools/list| J[💾 DIRECT DB QUERY<br/>Query PostgreSQL<br/>Return results]
-    I -->|YES - resources/list| J
-    I -->|YES - resources/read| J
-    I -->|YES - resource_templates/list| J
-    I -->|YES - prompts/list| J
-    I -->|YES - prompts/get| J
-    I -->|NO| K{STEP 5:<br/>method == tools/call?}
-    
-    K -->|YES| L[🔧 RESOLVE PLAN<br/>Call Python for exec plan<br/>Call upstream server]
-    K -->|NO| M{STEP 6:<br/>method == initialize?}
-    
-    M -->|YES| N[📋 SESSION CORE<br/>Create session record<br/>Proxy to Python]
-    M -->|NO| O[🔙 DEFAULT: PROXY TO PYTHON<br/>POST /_internal/mcp/{method}]
-    
+    A["📥 Request arrives<br/>POST /mcp<br/>JSON-RPC body"] --> B{"STEP 1:<br/>method == ping?"}
+
+    B -->|YES| C["🏠 HANDLE LOCALLY<br/>Return {}<br/>Status: 200"]
+    B -->|NO| D{"STEP 2:<br/>notifications/*?"}
+
+    D -->|"YES - initialized/message/cancelled"| E["🔙 PROXY TO PYTHON<br/>Backend call"]
+    D -->|"YES - other"| F["🏠 HANDLE LOCALLY<br/>Catch-all<br/>Return {}"]
+    D -->|NO| G{"STEP 3:<br/>Catch-all list?<br/>sampling/*, completion/*<br/>logging/*, elicitation/*"}
+
+    G -->|YES| H["🏠 HANDLE LOCALLY<br/>Return {}"]
+    G -->|NO| I{"STEP 4:<br/>Direct DB eligible?<br/>1. server-scoped?<br/>2. DB configured?<br/>3. Method in list?"}
+
+    I -->|"YES - tools/list"| J["💾 DIRECT DB QUERY<br/>Query PostgreSQL<br/>Return results"]
+    I -->|"YES - resources/list"| J
+    I -->|"YES - resources/read"| J
+    I -->|"YES - resource_templates/list"| J
+    I -->|"YES - prompts/list"| J
+    I -->|"YES - prompts/get"| J
+    I -->|NO| K{"STEP 5:<br/>method == tools/call?"}
+
+    K -->|YES| L["🔧 RESOLVE PLAN<br/>Call Python for exec plan<br/>Call upstream server"]
+    K -->|NO| M{"STEP 6:<br/>method == initialize?"}
+
+    M -->|YES| N["📋 SESSION CORE<br/>Create session record<br/>Proxy to Python"]
+    M -->|NO| O["🔙 DEFAULT: PROXY TO PYTHON<br/>POST /_internal/mcp/{method}"]
+
     style C fill:#90EE90
     style F fill:#90EE90
     style H fill:#90EE90
@@ -143,21 +143,21 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    subgraph Handlers[Handler Types]
+    subgraph Handlers["Handler Types"]
         direction TB
-        H1[🏠 Local Handler<br/>No external calls<br/>ping, catch-alls]
-        H2[💾 Direct DB<br/>PostgreSQL query<br/>tools/list, resources/*]
-        H3[🔧 Upstream Call<br/>Direct to MCP server<br/>tools/call]
-        H4[🔙 Backend Proxy<br/>To Python internal<br/>initialize, notifications]
-        H5[📋 Session Core<br/>Create session + Backend<br/>initialize]
+        H1["🏠 Local Handler<br/>No external calls<br/>ping, catch-alls"]
+        H2["💾 Direct DB<br/>PostgreSQL query<br/>tools/list, resources/*"]
+        H3["🔧 Upstream Call<br/>Direct to MCP server<br/>tools/call"]
+        H4["🔙 Backend Proxy<br/>To Python internal<br/>initialize, notifications"]
+        H5["📋 Session Core<br/>Create session + Backend<br/>initialize"]
     end
-    
-    H1 --> R1[✅ Fastest<br/>~1ms]
-    H2 --> R2[⚡ Fast<br/>~10-50ms]
-    H3 --> R3[🚀 Medium<br/>~50-200ms]
-    H4 --> R4[🐌 Slower<br/>~100-500ms]
-    H5 --> R5[📊 Medium<br/>~50-100ms]
-    
+
+    H1 --> R1["✅ Fastest<br/>~1ms"]
+    H2 --> R2["⚡ Fast<br/>~10-50ms"]
+    H3 --> R3["🚀 Medium<br/>~50-200ms"]
+    H4 --> R4["🐌 Slower<br/>~100-500ms"]
+    H5 --> R5["📊 Medium<br/>~50-100ms"]
+
     style H1 fill:#90EE90
     style H2 fill:#87CEEB
     style H3 fill:#FFB6C1
@@ -196,21 +196,21 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    subgraph Handlers[Типы обработчиков]
+    subgraph Handlers["Типы обработчиков"]
         direction TB
-        H1[🏠 Локальный<br/>Без внешних вызовов<br/>ping, catch-alls]
-        H2[💾 Direct DB<br/>PostgreSQL запрос<br/>tools/list, resources/*]
-        H3[🔧 Upstream вызов<br/>Напрямую к MCP серверу<br/>tools/call]
-        H4[🔙 Backend Proxy<br/>На Python internal<br/>initialize, notifications]
-        H5[📋 Session Core<br/>Создание сессии + Backend<br/>initialize]
+        H1["🏠 Локальный<br/>Без внешних вызовов<br/>ping, catch-alls"]
+        H2["💾 Direct DB<br/>PostgreSQL запрос<br/>tools/list, resources/*"]
+        H3["🔧 Upstream вызов<br/>Напрямую к MCP серверу<br/>tools/call"]
+        H4["🔙 Backend Proxy<br/>На Python internal<br/>initialize, notifications"]
+        H5["📋 Session Core<br/>Создание сессии + Backend<br/>initialize"]
     end
-    
-    H1 --> R1[✅ Быстрее всего<br/>~1ms]
-    H2 --> R2[⚡ Быстро<br/>~10-50ms]
-    H3 --> R3[🚀 Средне<br/>~50-200ms]
-    H4 --> R4[🐌 Медленнее<br/>~100-500ms]
-    H5 --> R5[📊 Средне<br/>~50-100ms]
-    
+
+    H1 --> R1["✅ Быстрее всего<br/>~1ms"]
+    H2 --> R2["⚡ Быстро<br/>~10-50ms"]
+    H3 --> R3["🚀 Средне<br/>~50-200ms"]
+    H4 --> R4["🐌 Медленнее<br/>~100-500ms"]
+    H5 --> R5["📊 Средне<br/>~50-100ms"]
+
     style H1 fill:#90EE90
     style H2 fill:#87CEEB
     style H3 fill:#FFB6C1
@@ -308,62 +308,62 @@ Rust MCP Runtime служит **высокопроизводительным HTT
 ```mermaid
 flowchart TB
     subgraph Client["🖥️ Client Layer / Клиентский слой"]
-        C1[MCP Clients<br/>LLMs, IDE plugins]
+        C1["MCP Clients<br/>LLMs, IDE plugins"]
     end
-    
+
     subgraph Nginx["⚖️ Nginx Reverse Proxy"]
-        N1[Routes /mcp to<br/>Rust edge|full or<br/>Python off|shadow]
+        N1["Routes /mcp to<br/>Rust edge|full or<br/>Python off|shadow"]
     end
-    
+
     subgraph Rust["🦀 Rust MCP Runtime"]
         direction TB
-        
+
         subgraph HTTP["HTTP Listener (Axum)"]
-            H1[Public Endpoints:<br/>GET /health, /healthz<br/>GET/POST/DELETE /mcp<br/>/servers/{id}/mcp]
-            H2[Internal Endpoints:<br/>POST /rpc<br/>POST /_internal/event-store/*]
+            H1["Public Endpoints:<br/>GET /health, /healthz<br/>GET/POST/DELETE /mcp<br/>/servers/{id}/mcp"]
+            H2["Internal Endpoints:<br/>POST /rpc<br/>POST /_internal/event-store/*"]
         end
-        
+
         subgraph Pipeline["Request Processing Pipeline"]
-            P1[1. Protocol version validation]
-            P2[2. Session ownership validation]
-            P3[3. Auth context reuse check]
-            P4[4. Method routing]
+            P1["1. Protocol version validation"]
+            P2["2. Session ownership validation"]
+            P3["3. Auth context reuse check"]
+            P4["4. Method routing"]
         end
-        
+
         subgraph Cores["Core Components (full mode)"]
             direction TB
-            C2[Session Core<br/>Session meta<br/>Auth binding<br/>TTL mgmt]
-            C3[Event Store<br/>Redis hash<br/>Event replay<br/>Seq numbers]
-            C4[Live Stream<br/>SSE edge<br/>Keep-alive<br/>Frame buffer]
-            C5[Resume Core<br/>last-event-id<br/>Poll Redis<br/>Tail stream]
-            C6[Affinity Core<br/>Owner worker<br/>Redis pub/sub<br/>Forward req]
+            C2["Session Core<br/>Session meta<br/>Auth binding<br/>TTL mgmt"]
+            C3["Event Store<br/>Redis hash<br/>Event replay<br/>Seq numbers"]
+            C4["Live Stream<br/>SSE edge<br/>Keep-alive<br/>Frame buffer"]
+            C5["Resume Core<br/>last-event-id<br/>Poll Redis<br/>Tail stream"]
+            C6["Affinity Core<br/>Owner worker<br/>Redis pub/sub<br/>Forward req"]
         end
-        
+
         subgraph Cache["Local Caches"]
-            L1[Runtime sessions<br/>LRU, TTL-based]
-            L2[Upstream tool sessions<br/>Connection pooling]
-            L3[Tool call plans<br/>TTL: 30s]
-            L4[RMCP clients<br/>Optional]
+            L1["Runtime sessions<br/>LRU, TTL-based"]
+            L2["Upstream tool sessions<br/>Connection pooling"]
+            L3["Tool call plans<br/>TTL: 30s"]
+            L4["RMCP clients<br/>Optional"]
         end
     end
-    
+
     subgraph Python["🐍 Python Gateway Backend"]
         direction TB
-        PY1[Trusted Internal Auth<br/>POST /_internal/mcp/authenticate]
-        PY2[Internal MCP RPC Endpoints<br/>/initialize, /transport<br/>/tools/*, /resources/*, /prompts/*]
-        PY3[Auth, Token Scoping, RBAC<br/>Source of Truth]
+        PY1["Trusted Internal Auth<br/>POST /_internal/mcp/authenticate"]
+        PY2["Internal MCP RPC Endpoints<br/>/initialize, /transport<br/>/tools/*, /resources/*, /prompts/*"]
+        PY3["Auth, Token Scoping, RBAC<br/>Source of Truth"]
     end
-    
+
     subgraph Storage["💾 Data Storage Layer"]
         direction TB
-        PG[(PostgreSQL<br/>tools, resources<br/>prompts, servers)]
-        RD[(Redis<br/>event store<br/>session cache<br/>affinity keys<br/>pub/sub)]
-        UP[Upstream MCP Servers<br/>HTTP/SSE]
+        PG[("(PostgreSQL<br/>tools, resources<br/>prompts, servers)")]
+        RD[("(Redis<br/>event store<br/>session cache<br/>affinity keys<br/>pub/sub)")]
+        UP["Upstream MCP Servers<br/>HTTP/SSE"]
     end
-    
-    Client -->|HTTP/1.1 or HTTP/2<br/>GET/POST/DELETE /mcp| Nginx
+
+    Client -->|"HTTP/1.1 or HTTP/2<br/>GET/POST/DELETE /mcp"| Nginx
     Nginx --> Rust
-    Rust -->|Trusted internal calls| Python
+    Rust -->|"Trusted internal calls"| Python
     Python --> Storage
     Rust --> Storage
 ```
@@ -383,17 +383,17 @@ sequenceDiagram
 
     Client->>Nginx: 1. POST /mcp<br/>JSON-RPC body
     Nginx->>Rust: 2. Forward
-    
+
     Note over Rust: 3. Validate protocol version
     Note over Rust: 4. Check session (if exists)
     Note over Rust: 5. Auth reuse? (TTL check)
-    
+
     Rust->>Python: 6. Internal auth call
     Note over Python: 7. JWT verify, token scope
     Python-->>Rust: 8. AuthContext
-    
+
     Note over Rust: 9. Route method
-    
+
     alt 9a. DB Query
         Rust->>DB: 9a. Query
         DB-->>Rust: 9a. Result
@@ -404,7 +404,7 @@ sequenceDiagram
         Rust->>Upstream: 9c. Call
         Upstream-->>Rust: 9c. Result
     end
-    
+
     Nginx-->>Client: 11. Response
 ```
 
@@ -418,17 +418,17 @@ sequenceDiagram
     participant Upstream as Upstream MCP
 
     Client->>Rust: POST /mcp<br/>method: initialize<br/>session-id: S1
-    
+
     Rust->>Python: 1. Authenticate
     Python-->>Rust: 2. AuthContext
-    
+
     Note over Rust: 3. Create RuntimeSessionRecord<br/>- owner_email<br/>- server_id<br/>- auth_binding_fingerprint<br/>- encoded_auth_context<br/>- TTL expiry
-    
+
     Note over Rust: 4. Store in<br/>- In-memory cache<br/>- Redis (if enabled)
-    
+
     Rust->>Python: 5. Forward initialize
     Python-->>Rust: 6. Response with<br/>mcp-session-id
-    
+
     Rust-->>Client: 7. Response + session-id
 ```
 
@@ -441,20 +441,20 @@ sequenceDiagram
     participant Python as Python Backend
 
     Client->>Rust: POST /mcp<br/>session-id: S1<br/>method: tools/list
-    
+
     Note over Rust: 1. Lookup session S1<br/>in-memory
-    
+
     Note over Rust: 2. Validate<br/>- owner_email matches?<br/>- server_id matches?<br/>- auth_binding_fingerprint?<br/>- TTL expired?
-    
+
     alt HIT - Reuse auth_context
         Note over Rust: Skip Python call
     else MISS
         Rust->>Python: Call Python auth
         Python-->>Rust: Update session
     end
-    
+
     Note over Rust: 3. Route to direct DB
-    
+
     Rust-->>Client: 4. Response
 ```
 
@@ -597,21 +597,21 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[Start:<br/>authenticate_public_request_if_needed] --> B{1. Request needs<br/>authentication?}
-    
-    B -->|No, internal| C[Return headers as-is]
-    B -->|Yes, public| D[2. Strip client<br/>internal headers]
-    
-    D --> E[3. Build<br/>InternalAuthenticateRequest<br/>{method, path, query_string,<br/>headers, client_ip}]
-    
-    E --> F[4. POST<br/>/_internal/mcp/authenticate<br/>→ Python Backend]
-    
-    F --> G[5. Parse response<br/>InternalAuthenticateResponse<br/>{authContext: {email, teams,<br/>is_admin, is_authenticated}}]
-    
-    G --> H[6. Encode auth_context<br/>as header<br/>x-contextforge-auth-context: base64]
-    
-    H --> I[Return headers, path]
-    
+    A["Start:<br/>authenticate_public_request_if_needed"] --> B{"1. Request needs<br/>authentication?"}
+
+    B -->|"No, internal"| C["Return headers as-is"]
+    B -->|"Yes, public"| D["2. Strip client<br/>internal headers"]
+
+    D --> E["3. Build<br/>InternalAuthenticateRequest<br/>{method, path, query_string,<br/>headers, client_ip}"]
+
+    E --> F["4. POST<br/>/_internal/mcp/authenticate<br/>→ Python Backend"]
+
+    F --> G["5. Parse response<br/>InternalAuthenticateResponse<br/>{authContext: {email, teams,<br/>is_admin, is_authenticated}}"]
+
+    G --> H["6. Encode auth_context<br/>as header<br/>x-contextforge-auth-context: base64"]
+
+    H --> I["Return headers, path"]
+
     style D fill:#FFE4B5
     style F fill:#FFE4B5
     style H fill:#90EE90
@@ -621,30 +621,30 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Start:<br/>can_reuse_session_auth] --> B{1. session_auth_<br/>reuse_enabled?}
-    
-    B -->|No| C[❌ MISS: disabled]
-    B -->|Yes| D{2. Session in<br/>runtime_sessions cache?}
-    
-    D -->|No| E[❌ MISS: no_session]
-    D -->|Yes| F{3. server_id<br/>matches?}
-    
-    F -->|No| G[❌ MISS:<br/>server_scope_mismatch]
-    F -->|Yes| H{4. encoded_auth_<br/>context present?}
-    
-    H -->|No| I[❌ MISS:<br/>missing_encoded_auth_context]
-    H -->|Yes| J{5. auth_binding_<br/>fingerprint present?}
-    
-    J -->|No| K[❌ MISS:<br/>missing_auth_binding_fingerprint]
-    J -->|Yes| L[6. Compute current<br/>fingerprint from headers<br/>SHA256 auth + server-id]
-    
-    L --> M{Fingerprint<br/>matches?}
-    M -->|No| N[❌ MISS:<br/>auth_binding_mismatch]
-    M -->|Yes| O{7. TTL not<br/>expired?}
-    
-    O -->|No| P[❌ MISS: ttl_expired]
-    O -->|Yes| Q[✅ HIT<br/>Return encoded_auth_context]
-    
+    A["Start:<br/>can_reuse_session_auth"] --> B{"1. session_auth_<br/>reuse_enabled?"}
+
+    B -->|No| C["❌ MISS: disabled"]
+    B -->|Yes| D{"2. Session in<br/>runtime_sessions cache?"}
+
+    D -->|No| E["❌ MISS: no_session"]
+    D -->|Yes| F{"3. server_id<br/>matches?"}
+
+    F -->|No| G["❌ MISS:<br/>server_scope_mismatch"]
+    F -->|Yes| H{"4. encoded_auth_<br/>context present?"}
+
+    H -->|No| I["❌ MISS:<br/>missing_encoded_auth_context"]
+    H -->|Yes| J{"5. auth_binding_<br/>fingerprint present?"}
+
+    J -->|No| K["❌ MISS:<br/>missing_auth_binding_fingerprint"]
+    J -->|Yes| L["6. Compute current<br/>fingerprint from headers<br/>SHA256 auth + server-id"]
+
+    L --> M{"Fingerprint<br/>matches?"}
+    M -->|No| N["❌ MISS:<br/>auth_binding_mismatch"]
+    M -->|Yes| O{"7. TTL not<br/>expired?"}
+
+    O -->|No| P["❌ MISS: ttl_expired"]
+    O -->|Yes| Q["✅ HIT<br/>Return encoded_auth_context"]
+
     style C fill:#FFB6C1
     style E fill:#FFB6C1
     style G fill:#FFB6C1
@@ -659,22 +659,22 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Start:<br/>direct_server_tools_list] --> B[1. Get DB connection<br/>from pool]
-    
-    B --> C{2. Build SQL query<br/>based on auth context}
-    
-    C -->|is_admin| D[SELECT * FROM tools<br/>WHERE server_id = $1]
-    C -->|non-admin| E[SELECT * FROM tools<br/>WHERE server_id = $1<br/>AND public = true<br/>OR team_id = ANY $2]
-    
-    D --> F[3. Execute<br/>parameterized query]
+    A["Start:<br/>direct_server_tools_list"] --> B["1. Get DB connection<br/>from pool"]
+
+    B --> C{"2. Build SQL query<br/>based on auth context"}
+
+    C -->|is_admin| D["SELECT * FROM tools<br/>WHERE server_id = $1"]
+    C -->|non-admin| E["SELECT * FROM tools<br/>WHERE server_id = $1<br/>AND public = true<br/>OR team_id = ANY $2"]
+
+    D --> F["3. Execute<br/>parameterized query"]
     E --> F
-    
-    F --> G[4. Map rows to<br/>MCP Tool objects]
-    
-    G --> H[5. Build JSON-RPC<br/>response]
-    
-    H --> I[Return response]
-    
+
+    F --> G["4. Map rows to<br/>MCP Tool objects"]
+
+    G --> H["5. Build JSON-RPC<br/>response"]
+
+    H --> I["Return response"]
+
     style C fill:#FFE4B5
     style F fill:#87CEEB
     style H fill:#90EE90
@@ -684,30 +684,30 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Start:<br/>handle_tools_call] --> B[1. Resolve tool call plan<br/>from Python<br/>POST /tools/call/resolve]
-    
-    B --> C[2. Check cache for<br/>resolved plan]
-    
-    C -->|Cached, not expired| D[Use cached plan]
-    C -->|Not cached| E[3. Build upstream<br/>session key]
-    
-    D --> F[4. Get or create<br/>upstream session]
+    A["Start:<br/>handle_tools_call"] --> B["1. Resolve tool call plan<br/>from Python<br/>POST /tools/call/resolve"]
+
+    B --> C["2. Check cache for<br/>resolved plan"]
+
+    C -->|"Cached, not expired"| D["Use cached plan"]
+    C -->|"Not cached"| E["3. Build upstream<br/>session key"]
+
+    D --> F["4. Get or create<br/>upstream session"]
     E --> F
-    
-    F -->|Session cached| G[Reuse session]
-    F -->|No session| H[Create new session<br/>with initialize call]
-    
-    G --> I[5. Call upstream server<br/>POST server_url<br/>tools/call]
+
+    F -->|"Session cached"| G["Reuse session"]
+    F -->|"No session"| H["Create new session<br/>with initialize call"]
+
+    G --> I["5. Call upstream server<br/>POST server_url<br/>tools/call"]
     H --> I
-    
-    I --> J[6. Parse<br/>upstream response]
-    
-    J --> K[7. Send metrics<br/>to Python<br/>POST /tools/{id}/metric]
-    
-    K --> L[8. Build JSON-RPC<br/>response]
-    
-    L --> M[Return response]
-    
+
+    I --> J["6. Parse<br/>upstream response"]
+
+    J --> K["7. Send metrics<br/>to Python<br/>POST /tools/{id}/metric"]
+
+    K --> L["8. Build JSON-RPC<br/>response"]
+
+    L --> M["Return response"]
+
     style B fill:#FFE4B5
     style I fill:#FFB6C1
     style K fill:#90EE90
@@ -845,24 +845,24 @@ ORDER BY name;
 flowchart TB
     subgraph L1["L1: In-Memory Cache<br/>HashMap + Mutex"]
         direction TB
-        M1[runtime_sessions<br/>HashMap<String,<br/>RuntimeSessionRecord>]
-        M2[upstream_tool_sessions<br/>HashMap<String,<br/>UpstreamToolSession>]
-        M3[resolved_tool_call_plans<br/>HashMap<String,<br/>CachedResolvedToolCallPlan>]
-        M4[rmcp_upstream_clients<br/>HashMap<String,<br/>CachedRmcpUpstreamClient>]
-        M5[TTL-based expiry<br/>+ periodic sweeper]
+        M1["runtime_sessions<br/>HashMap<String,<br/>RuntimeSessionRecord>"]
+        M2["upstream_tool_sessions<br/>HashMap<String,<br/>UpstreamToolSession>"]
+        M3["resolved_tool_call_plans<br/>HashMap<String,<br/>CachedResolvedToolCallPlan>"]
+        M4["rmcp_upstream_clients<br/>HashMap<String,<br/>CachedRmcpUpstreamClient>"]
+        M5["TTL-based expiry<br/>+ periodic sweeper"]
     end
-    
+
     subgraph L2["L2: Redis Cache<br/>cross-worker sharing"]
         direction TB
-        R1[Session records<br/>{prefix}:rust:mcp:session:{id}]
-        R2[Event store<br/>{prefix}:eventstore:{stream_id}<br/>Redis Hash]
-        R3[Affinity keys<br/>{prefix}:affinity:{session_id}]
-        R4[Pool owner<br/>{prefix}:pool_owner:{session_id}]
-        R5[SCAN-based cleanup<br/>not KEYS]
+        R1["Session records<br/>{prefix}:rust:mcp:session:{id}"]
+        R2["Event store<br/>{prefix}:eventstore:{stream_id}<br/>Redis Hash"]
+        R3["Affinity keys<br/>{prefix}:affinity:{session_id}"]
+        R4["Pool owner<br/>{prefix}:pool_owner:{session_id}"]
+        R5["SCAN-based cleanup<br/>not KEYS"]
     end
-    
-    L1 <-->|Sync on read/write| L2
-    
+
+    L1 <-->|"Sync on read/write"| L2
+
     style M1 fill:#90EE90
     style M2 fill:#90EE90
     style M3 fill:#90EE90
