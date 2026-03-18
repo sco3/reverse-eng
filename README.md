@@ -395,83 +395,30 @@ sequenceDiagram
 
 ### 4.1 Main Request Processing Pipeline
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    POST /mcp Request Arrives                            │
-│                    Headers: authorization, mcp-session-id, etc.         │
-│                    Body: JSON-RPC {method, params, id, jsonrpc}         │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Step 1: Protocol Version Validation                                    │
-│  ─────────────────────────────────                                      │
-│  • Extract mcp-protocol-version header                                  │
-│  • Check against supported_protocol_versions list                       │
-│  • If invalid → Return error -32602 (Invalid Params)                    │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Step 2: Session Validation (if session_core_enabled)                   │
-│  ─────────────────────────────────────────────────                      │
-│  • Extract mcp-session-id from header or query param                    │
-│  • Lookup session in runtime_sessions cache                             │
-│  • If not found → Return 404 "Session not found"                        │
-│  • Validate server_id matches (if server-scoped request)                │
-│  • Validate auth_binding_fingerprint matches                            │
-│  • If mismatch → Return 403 "Session access denied"                     │
-│  • Inject mcp-session-id and x-contextforge-server-id headers           │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Step 3: Affinity Forwarding (if affinity_core_enabled)                 │
-│  ─────────────────────────────────────────────────                      │
-│  • Generate affinity key from session_id                                │
-│  • Lookup owner_worker in Redis                                         │
-│  • If different worker → Publish to Redis pub/sub                       │
-│  • Wait for response on unique response channel                         │
-│  • If forwarded response received → Return to client                    │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Step 4: Method Routing Decision                                        │
-│  ─────────────────────────────────                                      │
-│  Determine handler based on method:                                     │
-│  • ping → Local handler                                                 │
-│  • initialize → Session Core handler                                    │
-│  • tools/list → Direct DB (if server-scoped + DB pool) or Backend       │
-│  • tools/call → Upstream direct execution                               │
-│  • resources/*, prompts/* → Direct DB or Backend                        │
-│  • notifications/* → Backend or Local (catch-all)                       │
-│  • others → Backend or Local (catch-all)                                │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Step 5: Execute Handler                                                │
-│  ─────────────────────────                                              │
-│  See sections 5-7 for handler-specific flows                            │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Step 6: Response Construction                                          │
-│  ───────────────────────────────                                        │
-│  • Wrap result/error in JSON-RPC envelope                               │
-│  • Add runtime headers:                                                 │
-│    - x-contextforge-mcp-runtime: rust                                   │
-│    - x-contextforge-mcp-session-core: rust|python                       │
-│    - x-contextforge-mcp-event-store: rust|python                        │
-│    - etc.                                                               │
-│  • Forward safe headers from backend (content-type, mcp-session-id)     │
-│  • Return to client                                                     │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │
-                                 ▼
-                              Response
+```mermaid
+flowchart TD
+    A["📥 POST /mcp Request Arrives<br/>Headers: authorization, mcp-session-id, etc.<br/>Body: JSON-RPC {method, params, id, jsonrpc}"] --> B["Step 1: Protocol Version Validation<br/>─────────────────────────────────<br/>• Extract mcp-protocol-version header<br/>• Check against supported_protocol_versions list<br/>• If invalid → Return error -32602 (Invalid Params)"]
+
+    B --> C["Step 2: Session Validation<br/>if session_core_enabled<br/>─────────────────────────────────<br/>• Extract mcp-session-id from header or query param<br/>• Lookup session in runtime_sessions cache<br/>• If not found → Return 404 'Session not found'<br/>• Validate server_id matches (if server-scoped request)<br/>• Validate auth_binding_fingerprint matches<br/>• If mismatch → Return 403 'Session access denied'<br/>• Inject mcp-session-id and x-contextforge-server-id headers"]
+
+    C --> D["Step 3: Affinity Forwarding<br/>if affinity_core_enabled<br/>─────────────────────────────────<br/>• Generate affinity key from session_id<br/>• Lookup owner_worker in Redis<br/>• If different worker → Publish to Redis pub/sub<br/>• Wait for response on unique response channel<br/>• If forwarded response received → Return to client"]
+
+    D --> E["Step 4: Method Routing Decision<br/>─────────────────────────────────<br/>Determine handler based on method:<br/>• ping → Local handler<br/>• initialize → Session Core handler<br/>• tools/list → Direct DB (if server-scoped + DB pool) or Backend<br/>• tools/call → Upstream direct execution<br/>• resources/*, prompts/* → Direct DB or Backend<br/>• notifications/* → Backend or Local (catch-all)<br/>• others → Backend or Local (catch-all)"]
+
+    E --> F["Step 5: Execute Handler<br/>─────────────────────────<br/>See sections 5-7 for handler-specific flows"]
+
+    F --> G["Step 6: Response Construction<br/>──────────────────────────────<br/>• Wrap result/error in JSON-RPC envelope<br/>• Add runtime headers:<br/>  - x-contextforge-mcp-runtime: rust<br/>  - x-contextforge-mcp-session-core: rust\|python<br/>  - x-contextforge-mcp-event-store: rust\|python<br/>  - etc.<br/>• Forward safe headers from backend (content-type, mcp-session-id)<br/>• Return to client"]
+
+    G --> H["✅ Response"]
+
+    style A fill:#FFE4B5
+    style B fill:#FFFACD
+    style C fill:#FFFACD
+    style D fill:#FFFACD
+    style E fill:#FFFACD
+    style F fill:#90EE90
+    style G fill:#87CEEB
+    style H fill:#98FB98
 ```
 
 ### 4.2 Authentication Flow
