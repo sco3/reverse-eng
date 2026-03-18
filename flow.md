@@ -145,19 +145,19 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[Request:8787/mcp] --> B[build_router]
-    B --> C{Path Match}
-    
-    C -->|/mcp| D[rpc<br/>post]
-    C -->|/servers/{id}/mcp| E[rpc_server_scoped<br/>post]
-    
-    D --> F[rpc_inner<br/>state, peer_addr, headers, uri, body, None]
+    A["Request:8787/mcp"] --> B["build_router"]
+    B --> C{"Path Match"}
+
+    C -->|"/mcp"| D["rpc<br/>post"]
+    C -->|"/servers/{id}/mcp"| E["rpc_server_scoped<br/>post"]
+
+    D --> F["rpc_inner<br/>state, peer_addr, headers, uri, body, None"]
     E --> F
-    
-    F --> G[Authentication]
-    G --> H[Protocol Validation]
-    H --> I[JSON-RPC Decode]
-    
+
+    F --> G["Authentication"]
+    G --> H["Protocol Validation"]
+    H --> I["JSON-RPC Decode"]
+
     style D fill:#e8f5e9
     style E fill:#e8f5e9
     style F fill:#fff3e0
@@ -255,17 +255,17 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[tools/list Request] --> B{rust_db_direct_tools_list?}
-    
-    B -->|Yes: DB Pool + Auth + Scoped| C[Path A1: Direct DB Query]
-    B -->|No| D{server_scoped_tools_list?}
-    
-    D -->|Yes| E[Path A2: Python Backend Fallback]
-    D -->|No| F[Forward to Backend]
-    
-    C --> G[Query PostgreSQL]
-    E --> H[POST /gateways/{id}/tools/list/authz]
-    
+    A["tools/list Request"] --> B{"rust_db_direct_tools_list?"}
+
+    B -->|"Yes: DB Pool + Auth + Scoped"| C["Path A1: Direct DB Query"]
+    B -->|"No"| D{"server_scoped_tools_list?"}
+
+    D -->|"Yes"| E["Path A2: Python Backend Fallback"]
+    D -->|"No"| F["Forward to Backend"]
+
+    C --> G["Query PostgreSQL"]
+    E --> H["POST /gateways/{id}/tools/list/authz"]
+
     style C fill:#c8e6c9
     style G fill:#e3f2fd
     style E fill:#fff9c4
