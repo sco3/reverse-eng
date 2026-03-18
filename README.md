@@ -1316,9 +1316,9 @@ Example health response:
 
 ## 12. References
 
-- [Rust MCP Runtime README](../../tools_rust/mcp_runtime/README.md)
-- [Rust MCP Runtime DEVELOPING](../../tools_rust/mcp_runtime/DEVELOPING.md)
-- [Rust MCP Runtime TESTING-DESIGN](../../tools_rust/mcp_runtime/TESTING-DESIGN.md)
-- [Rust MCP Runtime STATUS](../../tools_rust/mcp_runtime/STATUS.md)
-- [Architecture: Rust MCP Runtime](../../docs/docs/architecture/rust-mcp-runtime.md)
-- [ADR-043: Rust MCP Runtime Sidecar](../../docs/docs/architecture/adr/043-rust-mcp-runtime-sidecar-mode-model.md)
+- [Rust MCP Runtime README](https://github.com/IBM/mcp-context-forge/blob/main/tools_rust/mcp_runtime/README.md)
+- [Rust MCP Runtime DEVELOPING](https://github.com/IBM/mcp-context-forge/blob/main/tools_rust/mcp_runtime/DEVELOPING.md)
+- [Rust MCP Runtime TESTING-DESIGN](https://github.com/IBM/mcp-context-forge/blob/main/tools_rust/mcp_runtime/TESTING-DESIGN.md)
+- [Rust MCP Runtime STATUS](https://github.com/IBM/mcp-context-forge/blob/main/tools_rust/mcp_runtime/STATUS.md)
+- [Architecture: Rust MCP Runtime](https://github.com/IBM/mcp-context-forge/blob/main/docs/docs/architecture/rust-mcp-runtime.md)
+- [ADR-043: Rust MCP Runtime Sidecar](https://github.com/IBM/mcp-context-forge/blob/main/docs/docs/architecture/adr/043-rust-mcp-runtime-sidecar-mode-model.md)
